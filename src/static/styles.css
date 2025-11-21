@@ -102,6 +102,14 @@ section h3 {
   gap: 15px;
 }
 
+.announcement-banner {
+  background-color: #2e7d32;
+  color: white;
+  text-align: center;
+  padding: 15px;
+  font-weight: bold;
+}
+
 .sidebar-filters {
   padding: 15px;
   background-color: var(--surface);
