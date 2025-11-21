@@ -12,9 +12,7 @@
     />
   </head>
   <body>
-    <div class="announcement-banner">
-      📢 Activity registration is open until the end of the month. Don't lose your spot!
-    </div>
+    <div id="announcement-banner" class="announcement-banner hidden" role="region" aria-live="polite"></div>
     <header>
       <h1>Mergington High School</h1>
       <h2>Extracurricular Activities</h2>
@@ -27,6 +25,9 @@
           <div id="user-info" class="hidden">
             <span id="display-name"></span>
             <button id="logout-button">Logout</button>
+            <!-- Manage announcements button visible when signed-in -->
+            <button id="manage-announcements-button" class="icon-button hidden" title="Manage Announcements">📣 Manage</button>
+              <button id="debug-announcements-button" class="icon-button hidden" title="Debug Announcements">🐞 Debug</button>
           </div>
         </div>
       </div>
@@ -114,6 +115,52 @@
           <input type="hidden" id="activity" value="" />
           <button type="submit">Register</button>
         </form>
+      </div>
+    </div>
+
+    <!-- Announcements Management Modal -->
+    <div id="announcements-modal" class="modal hidden">
+      <div class="modal-content">
+        <span id="close-announcements-modal" class="close-modal">&times;</span>
+        <h3>Announcements</h3>
+        <div id="announcements-list">
+          <!-- management list will be loaded here -->
+        </div>
+        <hr />
+        <form id="announcement-form">
+          <div class="form-group">
+            <label for="announce-title">Title</label>
+            <input type="text" id="announce-title" required />
+          </div>
+          <div class="form-group">
+            <label for="announce-message">Message</label>
+            <textarea id="announce-message" rows="3" required></textarea>
+          </div>
+          <div class="form-group">
+            <label for="announce-start">Start Date (optional)</label>
+            <input type="datetime-local" id="announce-start" />
+          </div>
+          <div class="form-group">
+            <label for="announce-expire">Expiration Date</label>
+            <input type="datetime-local" id="announce-expire" required />
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            <button type="button" id="cancel-announcement" class="cancel-btn">Cancel</button>
+            <button type="submit" id="save-announcement" class="confirm-btn">Save Announcement</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Announcements Debug Modal -->
+    <div id="announcements-debug-modal" class="modal hidden">
+      <div class="modal-content">
+        <span id="close-announcements-debug" class="close-modal">&times;</span>
+        <h3>Raw /announcements JSON</h3>
+        <div style="margin-top:8px;">
+          <button id="copy-announcements-json" class="confirm-btn">Copy JSON</button>
+        </div>
+        <pre id="announcements-json" style="margin-top:12px; max-height:60vh; overflow:auto; background:#f8f8f8; padding:12px; border-radius:6px; border:1px solid var(--border);"></pre>
       </div>
     </div>
 

@@ -24,6 +24,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("login-form");
   const closeLoginModal = document.querySelector(".close-login-modal");
   const loginMessage = document.getElementById("login-message");
+  // Announcement elements
+  const announcementBanner = document.getElementById("announcement-banner");
+  const manageAnnouncementsButton = document.getElementById("manage-announcements-button");
+  const announcementsModal = document.getElementById("announcements-modal");
+  const closeAnnouncementsModal = document.getElementById("close-announcements-modal");
+  const announcementsList = document.getElementById("announcements-list");
+  const announcementForm = document.getElementById("announcement-form");
+  const announceTitle = document.getElementById("announce-title");
+  const announceMessage = document.getElementById("announce-message");
+  const announceStart = document.getElementById("announce-start");
+  const announceExpire = document.getElementById("announce-expire");
+  const cancelAnnouncement = document.getElementById("cancel-announcement");
+
+  let announcementEditingId = null;
+
+  // Debug UI elements (show raw /announcements JSON)
+  const debugAnnouncementsButton = document.getElementById('debug-announcements-button');
+  const announcementsDebugModal = document.getElementById('announcements-debug-modal');
+  const closeAnnouncementsDebug = document.getElementById('close-announcements-debug');
+  const announcementsJsonPre = document.getElementById('announcements-json');
+  const copyAnnouncementsJson = document.getElementById('copy-announcements-json');
 
   // Activity categories with corresponding colors
   const activityTypes = {
@@ -146,15 +167,21 @@ document.addEventListener("DOMContentLoaded", () => {
       loginButton.classList.add("hidden");
       userInfo.classList.remove("hidden");
       displayName.textContent = currentUser.display_name;
+      // show manage button when signed in
+      manageAnnouncementsButton.classList.remove("hidden");
+      if (debugAnnouncementsButton) debugAnnouncementsButton.classList.remove('hidden');
     } else {
       loginButton.classList.remove("hidden");
       userInfo.classList.add("hidden");
       displayName.textContent = "";
+      manageAnnouncementsButton.classList.add("hidden");
+      if (debugAnnouncementsButton) debugAnnouncementsButton.classList.add('hidden');
     }
 
     updateAuthBodyClass();
     // Refresh the activities to update the UI
     fetchActivities();
+    fetchAnnouncements();
   }
 
   // Update body class for CSS targeting
@@ -810,6 +837,376 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.classList.add("hidden");
     }, 5000);
   }
+
+  // Fetch announcements (public active ones)
+  async function fetchAnnouncements() {
+    try {
+      const response = await fetch(`/announcements`);
+      if (!response.ok) return;
+      const list = await response.json();
+      renderAnnouncementBanner(list);
+    } catch (err) {
+      console.error('Failed to fetch announcements', err);
+    }
+  }
+
+  // Announcement carousel state
+  let announceIndex = 0;
+  let announceTimer = null;
+
+  function renderAnnouncementBanner(list) {
+    if (!list || list.length === 0) {
+      announcementBanner.classList.add('hidden');
+      if (announceTimer) { clearInterval(announceTimer); announceTimer = null; }
+      return;
+    }
+
+    // Build carousel structure
+    announcementBanner.classList.remove('hidden');
+    announcementBanner.innerHTML = '';
+
+    const carousel = document.createElement('div');
+    carousel.className = 'announcement-carousel';
+
+    const slides = document.createElement('div');
+    slides.className = 'carousel-slides';
+
+    // Filter out dismissed announcements stored in localStorage
+    const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+    const filteredList = list.filter(a => !dismissed.includes(a.id));
+
+    filteredList.forEach((a, idx) => {
+      const slide = document.createElement('div');
+      slide.className = 'carousel-slide';
+      if (idx !== announceIndex) slide.classList.add('hidden');
+      slide.innerHTML = `
+        <div class="announce-content">
+          <strong class="announce-title">${a.title}</strong>
+          <span class="announce-message">${a.message}</span>
+        </div>
+      `;
+      slides.appendChild(slide);
+    });
+
+    const prev = document.createElement('button');
+    prev.className = 'carousel-prev';
+    prev.title = 'Previous announcement';
+    prev.innerText = '◀';
+
+    const next = document.createElement('button');
+    next.className = 'carousel-next';
+    next.title = 'Next announcement';
+    next.innerText = '▶';
+
+    const indicators = document.createElement('div');
+    indicators.className = 'carousel-indicators';
+    filteredList.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.className = 'carousel-dot';
+      if (i === announceIndex) dot.classList.add('active');
+      dot.dataset.idx = i;
+      indicators.appendChild(dot);
+    });
+
+    carousel.appendChild(prev);
+    carousel.appendChild(slides);
+    carousel.appendChild(next);
+    carousel.appendChild(indicators);
+    announcementBanner.appendChild(carousel);
+
+    function showIndex(newIdx) {
+      const slideNodes = slides.querySelectorAll('.carousel-slide');
+      const dots = indicators.querySelectorAll('.carousel-dot');
+      slideNodes.forEach((s, i) => s.classList.toggle('hidden', i !== newIdx));
+      dots.forEach((d, i) => d.classList.toggle('active', i === newIdx));
+      announceIndex = newIdx;
+    }
+
+    prev.addEventListener('click', () => {
+      const nextIdx = (announceIndex - 1 + filteredList.length) % filteredList.length;
+      showIndex(nextIdx);
+      resetTimer();
+    });
+
+    next.addEventListener('click', () => {
+      const nextIdx = (announceIndex + 1) % filteredList.length;
+      showIndex(nextIdx);
+      resetTimer();
+    });
+
+    indicators.querySelectorAll('.carousel-dot').forEach(dot => {
+      dot.addEventListener('click', (ev) => {
+        const idx = parseInt(ev.currentTarget.dataset.idx, 10);
+        showIndex(idx);
+        resetTimer();
+      });
+    });
+
+    function rotate() {
+      if (filteredList.length === 0) return;
+      const nextIdx = (announceIndex + 1) % filteredList.length;
+      showIndex(nextIdx);
+    }
+
+    function resetTimer() {
+      if (announceTimer) { clearInterval(announceTimer); }
+      announceTimer = setInterval(rotate, 5000);
+    }
+
+    // start automatic rotation
+    if (announceTimer) { clearInterval(announceTimer); }
+    announceTimer = setInterval(rotate, 5000);
+
+    // Pause-on-hover
+    carousel.addEventListener('mouseenter', () => { if (announceTimer) { clearInterval(announceTimer); announceTimer = null; } });
+    carousel.addEventListener('mouseleave', () => { if (!announceTimer) announceTimer = setInterval(rotate, 5000); });
+
+    // Touch swipe support for mobile
+    let touchStartX = 0;
+    carousel.addEventListener('touchstart', (ev) => { touchStartX = ev.touches[0].clientX; });
+    carousel.addEventListener('touchend', (ev) => {
+      const dx = ev.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(dx) > 40) {
+        if (dx < 0) { // swipe left -> next
+          const nextIdx = (announceIndex + 1) % filteredList.length;
+          showIndex(nextIdx);
+        } else { // swipe right -> prev
+          const prevIdx = (announceIndex - 1 + filteredList.length) % filteredList.length;
+          showIndex(prevIdx);
+        }
+        resetTimer();
+      }
+    });
+
+    // Add dismiss control to each slide (persisted)
+    const slideNodes = slides.querySelectorAll('.carousel-slide');
+    slideNodes.forEach((s, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'announce-dismiss';
+      btn.title = 'Dismiss this announcement';
+      btn.innerText = 'Dismiss';
+      btn.addEventListener('click', () => {
+        const idx = i; // index in filteredList
+        const ann = filteredList[idx];
+        if (!ann) return;
+        // persist dismissal
+        const cur = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+        if (!cur.includes(ann.id)) { cur.push(ann.id); localStorage.setItem('dismissedAnnouncements', JSON.stringify(cur)); }
+        // remove slide and refresh
+        s.remove();
+        const dot = indicators.querySelector(`.carousel-dot[data-idx="${idx}"]`);
+        if (dot) dot.remove();
+        // Check if any slides remain
+        const remainingSlides = slides.querySelectorAll('.carousel-slide');
+        if (remainingSlides.length === 0) {
+          // Hide banner and clear timer
+          banner.classList.add('hidden');
+          clearInterval(carouselTimer);
+        } else {
+          showIndex(0);
+          resetTimer();
+        }
+      });
+      s.appendChild(btn);
+    });
+  }
+
+  // Open announcements management modal
+  function openAnnouncementsModal() {
+    if (!currentUser) {
+      showMessage('Sign in to manage announcements', 'error');
+      return;
+    }
+    announcementsModal.classList.remove('hidden');
+    setTimeout(() => announcementsModal.classList.add('show'), 10);
+    loadManagementList();
+  }
+
+  function closeAnnouncementsModalHandler() {
+    announcementsModal.classList.remove('show');
+    setTimeout(() => {
+      announcementsModal.classList.add('hidden');
+      announcementForm.reset();
+      announcementEditingId = null;
+    }, 300);
+  }
+
+  // Load full list for management
+  async function loadManagementList() {
+    announcementsList.innerHTML = '<p>Loading announcements...</p>';
+    try {
+      const resp = await fetch(`/announcements/all?teacher_username=${encodeURIComponent(currentUser.username)}`);
+      if (!resp.ok) {
+        announcementsList.innerHTML = '<p>Failed to load announcements.</p>';
+        return;
+      }
+      const list = await resp.json();
+      if (!list.length) {
+        announcementsList.innerHTML = '<p>No announcements yet.</p>';
+        return;
+      }
+      announcementsList.innerHTML = '';
+      list.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'announcement-item';
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+            <div style="flex:1">
+              <strong>${a.title}</strong>
+              <div class="announce-text">${a.message}</div>
+              <div class="announce-dates">Start: ${a.start_date || 'Now'} • Expires: ${a.expiration_date}</div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="edit-announcement" data-id="${a.id}">Edit</button>
+              <button class="delete-announcement" data-id="${a.id}">Delete</button>
+            </div>
+          </div>
+        `;
+        announcementsList.appendChild(div);
+      });
+
+      // attach listeners
+      const editBtns = announcementsList.querySelectorAll('.edit-announcement');
+      editBtns.forEach(b => b.addEventListener('click', startEditAnnouncement));
+      const delBtns = announcementsList.querySelectorAll('.delete-announcement');
+      delBtns.forEach(b => b.addEventListener('click', deleteAnnouncement));
+    } catch (err) {
+      console.error(err);
+      announcementsList.innerHTML = '<p>Error loading announcements.</p>';
+    }
+  }
+
+  function startEditAnnouncement(e) {
+    const id = e.currentTarget.dataset.id;
+    // fetch single announcement from management list (we already loaded it)
+        announceStart.value = a.start_date
+          ? a.start_date.slice(0, 16)
+          : '';
+        announceExpire.value = a.expiration_date
+          ? a.expiration_date.slice(0, 16)
+          : '';
+      .then(list => {
+        const a = list.find(x => x.id === id);
+        if (!a) return;
+        announcementEditingId = id;
+        announceTitle.value = a.title || '';
+        announceMessage.value = a.message || '';
+        announceStart.value = a.start_date ? a.start_date.split('T')[0] : '';
+        announceExpire.value = a.expiration_date ? a.expiration_date.split('T')[0] : '';
+      });
+  }
+
+  async function deleteAnnouncement(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!confirm('Delete this announcement?')) return;
+    try {
+      const resp = await fetch(`/announcements/${encodeURIComponent(id)}?teacher_username=${encodeURIComponent(currentUser.username)}`, { method: 'DELETE' });
+      if (!resp.ok) {
+        const d = await resp.json();
+        showMessage(d.detail || 'Delete failed', 'error');
+        return;
+      }
+      showMessage('Announcement deleted', 'success');
+      loadManagementList();
+      fetchAnnouncements();
+    } catch (err) {
+      console.error(err);
+      showMessage('Delete failed', 'error');
+    }
+  }
+
+  // Debug modal handlers
+  function openAnnouncementsDebug() {
+    announcementsDebugModal.classList.remove('hidden');
+    setTimeout(() => announcementsDebugModal.classList.add('show'), 10);
+    // fetch raw announcements
+    fetch('/announcements')
+      .then(r => r.json())
+      .then(data => {
+        const pretty = JSON.stringify(data, null, 2);
+        announcementsJsonPre.textContent = pretty;
+      })
+      .catch(err => {
+        announcementsJsonPre.textContent = 'Failed to fetch /announcements: ' + err;
+      });
+  }
+
+  function closeAnnouncementsDebugHandler() {
+    announcementsDebugModal.classList.remove('show');
+    setTimeout(() => {
+      announcementsDebugModal.classList.add('hidden');
+      announcementsJsonPre.textContent = '';
+    }, 300);
+  }
+
+  if (debugAnnouncementsButton) {
+    debugAnnouncementsButton.addEventListener('click', () => {
+      if (!currentUser) { showMessage('Sign in to debug announcements', 'error'); return; }
+      openAnnouncementsDebug();
+    });
+  }
+
+  if (closeAnnouncementsDebug) {
+    closeAnnouncementsDebug.addEventListener('click', closeAnnouncementsDebugHandler);
+  }
+
+  if (copyAnnouncementsJson) {
+    copyAnnouncementsJson.addEventListener('click', () => {
+      const text = announcementsJsonPre.textContent || '';
+      if (!text) return;
+      navigator.clipboard && navigator.clipboard.writeText(text).then(() => {
+        showMessage('Announcements JSON copied to clipboard', 'success');
+      }).catch(() => {
+        showMessage('Copy failed', 'error');
+      });
+    });
+  }
+
+  // Save (create or update)
+  announcementForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!currentUser) { showMessage('Sign in to manage announcements', 'error'); return; }
+    const title = announceTitle.value.trim();
+    const message = announceMessage.value.trim();
+    const start = announceStart.value ? new Date(announceStart.value).toISOString() : null;
+    const expire = announceExpire.value ? new Date(announceExpire.value).toISOString() : null;
+    if (!expire) { showMessage('Expiration date is required', 'error'); return; }
+    try {
+      if (announcementEditingId) {
+        const resp = await fetch(`/announcements/${encodeURIComponent(announcementEditingId)}?teacher_username=${encodeURIComponent(currentUser.username)}&title=${encodeURIComponent(title)}&message=${encodeURIComponent(message)}&expiration_date=${encodeURIComponent(expire)}&start_date=${encodeURIComponent(start || '')}`, { method: 'PUT' });
+        const d = await resp.json();
+        if (!resp.ok) { showMessage(d.detail || 'Update failed', 'error'); return; }
+        showMessage('Announcement updated', 'success');
+      } else {
+        const params = `?teacher_username=${encodeURIComponent(currentUser.username)}&title=${encodeURIComponent(title)}&message=${encodeURIComponent(message)}&expiration_date=${encodeURIComponent(expire)}${start?`&start_date=${encodeURIComponent(start)}`:''}`;
+        const resp = await fetch(`/announcements${params}`, { method: 'POST' });
+        const d = await resp.json();
+        if (!resp.ok) { showMessage(d.detail || 'Create failed', 'error'); return; }
+        showMessage('Announcement created', 'success');
+      }
+      announcementForm.reset();
+      announcementEditingId = null;
+      loadManagementList();
+      fetchAnnouncements();
+    } catch (err) {
+      console.error(err);
+      showMessage('Save failed', 'error');
+    }
+  });
+
+  cancelAnnouncement.addEventListener('click', (e) => {
+    e.preventDefault();
+    announcementForm.reset();
+    announcementEditingId = null;
+  });
+
+  manageAnnouncementsButton.addEventListener('click', openAnnouncementsModal);
+  closeAnnouncementsModal.addEventListener('click', closeAnnouncementsModalHandler);
+  window.addEventListener('click', (event) => {
+    if (event.target === announcementsModal) {
+      closeAnnouncementsModalHandler();
+    }
+  });
 
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
