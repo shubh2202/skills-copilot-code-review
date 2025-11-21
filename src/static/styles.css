@@ -103,12 +103,61 @@ section h3 {
 }
 
 .announcement-banner {
-  background-color: #2e7d32;
-  color: white;
+  background: linear-gradient(90deg, #ffecb3 0%, #fff3e0 100%);
+  color: #3e2723;
   text-align: center;
-  padding: 15px;
-  font-weight: bold;
+  padding: 12px 16px;
+  font-weight: 600;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+/* Carousel styles for announcements */
+.announcement-carousel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.announcement-carousel .carousel-slides {
+  flex: 1;
+  min-width: 0;
+}
+.carousel-slide {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.carousel-slide.hidden { display: none !important; }
+.announce-title { margin-right: 8px; color: #3e2723; }
+.announce-message { color: #4e342e; }
+.carousel-prev, .carousel-next {
+  background: rgba(0,0,0,0.06);
+  border: none;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.carousel-prev:hover, .carousel-next:hover { background: rgba(0,0,0,0.12); }
+.carousel-indicators { display:flex; gap:6px; align-items:center; }
+.carousel-dot { width:8px; height:8px; border-radius:50%; border:none; background:rgba(0,0,0,0.12); cursor:pointer; }
+.carousel-dot.active { background: var(--primary); width:10px; height:10px; }
+
+.announce-dismiss {
+  margin-left: 12px;
+  background: transparent;
+  color: #6b6b6b;
+  border: 1px solid rgba(0,0,0,0.06);
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.announce-dismiss:hover { background: rgba(0,0,0,0.04); }
 
 .sidebar-filters {
   padding: 15px;
@@ -462,6 +511,36 @@ button {
 /* Hidden class - critical for showing/hiding elements */
 .hidden {
   display: none !important;
+}
+
+/* Announcements management styles */
+.announcement-item {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.announce-text {
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+.announce-dates {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.confirm-btn {
+  background-color: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+.cancel-btn {
+  background-color: #f1f1f1;
+  color: #333;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
 }
 
 /* More compact no-results message */
